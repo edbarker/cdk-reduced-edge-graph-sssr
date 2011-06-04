@@ -1,0 +1,93 @@
+Notes for development of reduced edge graph sssr
+
+Here are some initial notes and thoughts. If things don't make sense let me know. There's a paper in early stages if required. I can send this to anyone interested. 
+
+In general the approach is in two stages and due to the nature of most typical drug-like molecules (the kind I'm interested in) most (96%) can be solved in stage one. This is because it favours molecules with either single rings separated by acyclic chains and/or simple ring systems - arranged linearly.
+
+I call the approach the reduced edge graph because it is a reduced graph and also an edge graph. That is nodes in the graph represent multiple nodes in the original chemical graph, and an edge graph because the edges in the graph are actually nodes in the original graph [references available from me if you want to know more]. 
+
+There are two stages.
+
+Stage one
+
+1. All terminal branches are pruned away leaving just the rings and their acyclic connectors.
+2. An edge is selected to be cut. The selection of this edge is based on finding the least connected atom using a connectivity index described by zamora. This step improves the chances of solving the molecule in stage one, and gives an improvement in efficiency.
+3. When the edge is cut all terminal branches are deleted and the entire substructure that has been removed is reconnected as it was in the original graph and represented as a single node which is added to the reduced edge graph.
+4. Steps 2 and 3 continue until nothing remains of the molecule.
+5. The nodes in the reduced edge graph are connected by finding those atoms shared between neighbouring nodes.
+6. Nodes which contain cycles are identified and the cycles retrieved.
+7. If there are still rings left to be found then all fragments which are linear are analysed. If the terminal atoms of these linear fragments are found in a single neighbouring fragment then a ring is created. This is made up of the linear fragment plus the shortest path between the atoms in the neighbouring fragment.
+8. Because it is possible for a fragment containing a ring to be divided by step 7 to create two new smaller rings this ring splitting is tested. To do this the shortest path found in step 7 is compared with the path between the connecting atoms in the linear fragment and if the shortest path is greater then the fragment is split by removing the new ring and adding what's left to the linear fragment. It is also necessary to test the rings found against those previously found to check they are unique. If not then they are discarded.
+9. If all rings have not been found then steps 7 and 8 are repeated until all linear fragments have been tested.
+
+
+This shows a typical fragmentation for stage 1:
+ 
+o-o-o-o     o-o-o
+    | |     | | |
+    o-o-o-o-o-o-o-o		Chemical graph
+
+ 
+    o-o     o-o-o
+    | |     | | |
+    o-o-o-o-o-o-o		After deleting terminal branches
+
+ 
+    o-o     o-o-o
+      |     | | |
+    o-o-o-o-o-o-o		Bond is cut
+
+ 
+            o-o-o					o-o
+            | | |					| |
+            o-o-o		Fragment removed = A    o-o-o-o-o-
+
+
+            o-o-o
+              | |
+	    o-o-o		Bond is cut 
+
+ 
+              o-o					o-o-
+              | |					| 
+              o-o		Fragment removed = B    o-o-
+
+              o-o
+              | 
+	      o-o		Bond is cut 
+
+                 					o-o
+                 					| |
+                 		Fragment removed = C    o-o
+
+
+Fragments A and C are easily resolved into cycles. Fragment B is resolved by finding shortest path between connectors in Fragment C. 
+
+
+Stage two
+
+1. Any reduced edge graph arriving here must be cyclic. So using any sssr algorithm these rings are found.
+2. Each cycle found is analysed and the nodes making up the cycle are identified. The fragments represented by these fragments are reconnected. The shortest path through these fragments is traced and used to build a new ring.
+3. Ring splitting is tested as in step 8 above, as is unique cycle checking.
+4. Repeat steps 2 and 3 until all rings in the reduced edge graph have been analysed, or all rings have been found in the original graph.
+
+In theory all rings should be found by now, but in reality this is not happening. I think this is because of a strange phenomenon with sssr finding. It is also shown up when I tested the rings found by the above method and with the sssrfinder of cdk. It is possible that in some cases where a cycle can revolve around a symmetrical axis that two possible rings exist but only one can be chosen and this choice is arbitrary. Thus my method finds one way and the cdk sssr finds the other but although it finds different rings both are valid. For example consider a benzene ring with a neigbouring ring made by joining an atom [7] to atoms [1] and [4] of the benzene. The extra ring has two possibilities: 
+[1][7][4][2][3] or [1][7][4][5][6]. Both are valid. So in stage two the sssr finder fails to find a cycle in the reduced edge graph because they are looking at the rings differently, so cannot resolve all rings. I hope that make sense - it's my theory anyway, I may be wrong.
+
+I did a time trial using the NCI dataset of 250251 molecules in smiles format. Times shown are times taken less the time taken to do the background processing of reading in the smiles (1002s).
+
+CDK SSSRFinder alone 				- 1379s - 1002s = 377s = 663 molecules processed per second.
+Stage One plus CDK SSSRFinder			- 1215s - 1002s = 213s = 1174 mols/s
+Stage One and Stage tow plus CDKSSSRFinder	- 1242s - 1002s = 240s = 1042 mols/s
+Stage One plus CDK SSSRFinder - random bond cut	- 1243s - 1002s = 241s = 1042 mols/s
+
+So clearly stage one is faster when combined with sssrfinder. stage one and stage two are also fast, but stage two is clearly slower than using sssr on the unsolved molecules. I believe there is scope for improving this stage so that it will be faster than sssrfinder here. Also the extra time taken to find the least connected atom is worth it as more molecules are solved at stage 1. With this step 239865 molecules are solved at stage 1 (amazingly this is 95.8%! of the dataset, with only 10486 unsolved) whereas without this step only 219757 molecules are solved in stage 1 (30594 unsolved).
+
+However, I believe finding the least connected atom could easily be made faster by using updated arrays instead of calculating it each time. Also stage two could be speeded up by not going to sssrfinder if only one ring exists (and the greatest number of cyclic reduced edge graphs only have 1 ring). There are other steps here which I'm sure are N^2 but could be made quicker. When I wrote my C version I implemented a simple triangle finding algorithm and this solved a large proportion of the cyclic reduced edge graphs - I'm not sure if this is quicker than sssrfinder. But most cycles are three-membered rings in these reduced edge graphs.
+
+Other ideas I have to improve speed include:
+- testing to see if the molecule contains complex ring systems and just go straight to sssr finder - but I'm not sure if there is any suitable index out there which will do this.
+- taking advantage of two properties of the technique it might be possible to do everything in stage one. These properties are: that the last fragment found is always a ring; and that there is not one reduced edge graph produced but generally a multitude of possibilities. So if a molecule is unsolved it could be fragmented again with the fragmentation being directed in such a way that the last fragment is always an unknown ring. I have attempted to do this and it does work but there are some molecules which just will not resolve themselves. This would be very fast if it could be done. It would only need to be repeated in the worst case as many times as there are rings left to find.
+
+
+
