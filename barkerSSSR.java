@@ -30,9 +30,8 @@ import org.openscience.cdk.graph.PathTools;
 
 public class barkerSSSR {
 
-	public static int main(String[] args) throws Exception 
+	public static boolean findRings(IAtomContainer originalmol, IMoleculeSet cycles) throws Exception 
     	{
-        	IAtomContainer originalmol = DefaultChemObjectBuilder.getInstance().newMolecule();
         	IAtomContainer copymol = DefaultChemObjectBuilder.getInstance().newMolecule();
 		
         	// set id for each atom so can keep track of them when atoms are deleted
@@ -47,8 +46,7 @@ public class barkerSSSR {
                
 		int numcomponents = 0;       	 	
         	copymol.add(originalmol);
-            	
-        	IMoleculeSet cycles = DefaultChemObjectBuilder.getInstance().newMoleculeSet();		
+            		
         	int originalnumatoms=copymol.getAtomCount();
        		int cauchy=0;
        		int numringsfound=0;
@@ -74,11 +72,11 @@ public class barkerSSSR {
        	   
 	        if(cauchy==numringsfound)
 	        {
-	        	return 1;
+	        	return true;
 	        }
 	        else
 	        {
-	        	return 0;
+	        	return false;
 	        }        
     	} 
     
