@@ -93,13 +93,37 @@ Wish List
 
 Here is a list of things I think would help improve the algorithm, but I'm not sure how to do them with java or cdk
 
-- speed up connectivity by avoiding recalculation at each step - calculate once then when atom is deleted update the connectivity indices of its neighbouring atoms.
+CDK problems
+
+- I have to give each atom an id so that I keep track of them when the atoms are deleted. Otherwise causes problems as everything is shifted out of position. Is there a better way to do this? Maybe not deleting atoms from the molecule would keep everything inplace - just delete the bonds.
+- CDK does not recognise elements with mass > 100 - I must need to set something up. Anyone able to tell me what it is I'm not doing. I had to set up an NCI dataset by hand by replacing these atoms. Fortunately not many of them.
+
+
+Stage one 
+
+- [FIXED THIS] speed up connectivity by avoiding recalculation at each step - calculate once then when atom is deleted update the connectivity indices of its neighbouring atoms.
 
 - data structure to add info to the atoms, for example the connectivity index for each atom. Does cdk have the option to add a user defined field to the atom such as atom.connectivity? Otherwise I will have to add a separate array which seems clumsy.
 
-- Is there a better way to find atoms on the periphery of a molecule? Connectivity index does not always do this. If could guarantee finding a peripheral atom then can increase efficiency
+- Is there a better way to find atoms on the periphery of a molecule? Connectivity index does not always do this. If could guarantee finding a peripheral atom then can increase efficiency - but it must be a fast calculation. I had used a similar algorithm to the one implemented which is used in canonical enumeration of atoms - I forget its name (marshall?). This needed a few iterations to find least connected atoms so wasn't used as deemed too inefficient - but perhaps i could test this. 
 
-- Is the zamora calculation as I've implemented it correct? Not sure I've done this right (although it certainly improves performance) so if someone could check this it would be good.
+- [TESTED THIS and x64 finds 232399 mols so is not as good. Think this is because it is a way to find the most connected not least connected] Is the zamora calculation as I've implemented it correct? Not sure I've done this right (although it certainly improves performance) so if someone could check this it would be good.
+
+- [FIXED THIS] countatomsincommon - there were two versions of this for some reason - an old slower one and a newer optimised one using an array of atoms and their fragment membership. Could be optimised more maybe - better lookup table?
+
+- checksplittingcomplex could be improved by using some array of ring membership I think. This is not going to be easy to do. 
+
+- [FIXED THIS - but some mols lost from stage one for some reason so needs debugging] maybe checkunique cycles could also be optimised with a lookup array.
+
+- [FIXED THIS -] in resolveeasycycles we need to find linkers but we are repeating ourselves as this was info found when fragments were constructed. Easy way to optimise would be to keep a record of the terminal atoms for each fragment. Again could we not make a field in the atom to keep this info in? Otherwise we need a separate array.
+
+- [not worth changing as linked to checkbranching which is rarely visited] checklinkers - again some lookup table to see if atom still in the fragment may speed this up
+
+- [DONE THIS - but rarely ever goes to this function] checkbranching - easiest way to do this is to label the node an element type if it is a branching node (type III) which can be done during fragmentation
+
+- There is a real problem caused by deleting atoms when stripmolecule/stripterminalatoms deletes atoms from mol. This shifts atoms up the atomcontainer and so i have to pass a copy of the original molecule around as a reference to find original positions. There must be a better way of doing this. Maybe don't delete atoms - just bonds from the molecule.
+
+Stage two
 
 - if only one cycle in fraggraph then don't bother doing sssr - waste of time. just trim it and send the whole thing to resolvecomplexcycles
 
@@ -109,25 +133,11 @@ Here is a list of things I think would help improve the algorithm, but I'm not s
  
 - explore exactly why some rings cannot be solved at end of stage two.
 
-- countatomsincommon - there were two versions of this for some reason - an old slower one and a newer optimised one using an array of atoms and their fragment membership. Could be optimised more maybe - better lookup table?
-
 - resolvecomplexcycles - this is the heart of the problem with stage two i think. in my C version I would find the linear node in the cycle and use this as the starting point. Then find linking atoms to neighbour A. Then find link from neighbour A to its other neighbour (not the starting fragment) then find the shortest path through A. Repeat this for that neighbour until reach starting fragment. then we will have our ring. Just throwing everything together and then using sssr again to find if any unique cycles exist is just lazy, but the only way I could get it to work. This is what needs optimising. 
-
-- checksplittingcomplex could be improved by using some array of ring membership I think.
-
-- maybe checkunique cycles could also be optimised with a lookup array.
-
-- in resolveeasycycles we need to find linkers but we are repeating ourselves as this was info found when fragments were constructed. Easy way to optimise would be to keep a record of the terminal atoms for each fragment. Again could we not make a field in the atom to keep this info in? Otherwise we need a separate array.
-
-- checklinkers - again some lookup table to see if atom still in the fragment may speed this up
-
-- checkbranching - easiest way to do this is to label the node an element type if it is a branching node (type III) which can be done during fragmentation
-
-- stripmolecule/stripterminalatoms - had big problems here as cdk shifts atoms along pointer when one is deleted so i would lose my place - have a list of terminal atoms to start tracing from but when an atom positioned below an atom is removed the index changed so it tries to delete a non terminal atom. had to do some juggling to avoid this - but maybe could improve this. This is pretty much optimal as it finds terminal atoms first and traces back from them. otherwise each time deletes terminal have to reset to start of molecule again and find terminal which is very inefficient.
 
 - implement the idea whereby if stage one is not succesful repeat it but direct the fragmentation to always end on an unfound ring. i have done this in my C version but it didn't always work - it did however find more at stage one. As I think stage one is almost linear repeating it will not make a big difference in time taken
 
-- can anyone show what the time complexity of stage one is? not sure how to do this. ditto stage two - in current state.
+- can anyone show what the time complexity of stage one is? not sure how to do this. ditto stage two - in current state. I think stage one in its optimised state is approaching O(n).
 
-
+- is it a unique way of finding the sssr? Has anyone ever done this before? I have no access to papers so can't find out. Last time I looked (6 months ago) I couldn't find anything. Be good if someone could confirm this.
 

@@ -1,0 +1,41 @@
+CHANGES MADE
+
+05-06-2011
+
+Introduced a way to optimise the selection of the least connected atom. This calculates the connectivities for all atoms in the molecule just once and represents the indices in an array where connectivity[atom][0]=the atom's index and connectivity[atom][1]=total index summed for atom and its neighbours. Then when a bond is removed from connecting atoms - at the start and end of fragmentation step this index is updated. So avoids recalculating at each step - just looks up the connectivity.
+
+For some reason this finds fewer mols at stage one - 227494 now found. Why is this? - needs fixing.
+
+However, speed is increased with this simple change - 143s - 70s faster!
+
+Changed it so that when an atom is deleted the connectivity now becomes 999 so that will not be considered as leastconnected atom. Also realised that when stripmolecule - looks for terminals but this is a waste of time as the seeds are known - the atoms at ends of the cut bond. so made this change.
+
+Bug sort of fixed so now it solves 238147 mols after stage one, but this is still not 239865 I originally had. Why is this? Seem to have 'lost' 1700 mols - so must do something different. Is it worth effort to solve this?
+
+new methods added, or altered:
+ 
+findLeastConnectedAtom(); 	- changed so goes through array now - much quicker 
+findConnectivities(); 		- initial function finds connectivities for all atoms - done once only
+updateConnectivity(); 		- when bond removed - updates its and neighbour's connectivities
+
+Tested - Changed calculation to 64*Ki+Li - and this finds fewer - 232399 at stage one so do not * by 64.
+
+06/06/2011
+
+Changed it so branching is identified during stripmolecule fraggraph nodes so that atomic number indicates if branching cycle - Type III fragment. This = 32 (Ge).
+So in checkbranching - now just check atomic number. However, hardly ever gets to this function - so will not save much time.
+
+Added new array - terminalatoms[fragment][] which keeps number of terminal atoms for fragment and what they are. 
+
+Took some doing this. There is a real problem caused by deleting atoms when stripterminalatoms deletes atoms from mol. This shifts atoms up the atomcontainer and so i have to pass a copy of the original molecule around as a reference to find original positions. There must be a better way of doing this. Maybe don't delete atoms - just bonds.
+ 
+Anyway - very big improvement in efficiency. Now 118s which is 2120 mols processed/s.
+
+09/06/2011
+
+Fixed a number of issues which meant that it was finding more rings than cauchy. This was all to do with checksplittingcomplex. However, This slowed the algorithm back down to 1200 mol/s. So wondering if the loss in speed is worth the fixes - some of the mols failing here just go on to SSSR and it's only for a few of them. But I suppose it is worth doing in the interests of finding correct rings.
+
+Found about six molecules in NCI which cannot avoid finding too many rings. This is again due to the problem where a linear fragment connects a ring at two atoms equidistant from each other in the ring. SO it finds the SSSR plus a few extra rings that are valid but it needs to choose between them and I don't know how to do this. One way might be to canonicalise the finding of the shortest path where there is a choice between two. But how? Have to accept this as an acceptable problem.
+
+  
+Found some bugs in the way rings are split which needed fixing. This seems to work fine now.
