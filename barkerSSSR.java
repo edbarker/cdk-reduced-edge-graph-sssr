@@ -315,86 +315,46 @@ public class barkerSSSR {
 
 	private static int checkSplittingComplex(IAtomContainer newcycle,
 			IMoleculeSet cycles, int[][] cyclearray) {
-		// if a cycle is contained within another previously found cycle then need to 
-		// remove cycle and add shortest path
-		
+		// does check splitting - but this is where only have the cycle info
 		int deleted=0;
 		int index=0;
-		int endflag=0;
-
+		
 		if(checkUniqueCycle(newcycle,cycles,cyclearray)==0)
-		{		
+		{			
 			return 99;
-		}		
+		}	
 		
 		for(IAtomContainer cycle : cycles.molecules())
 		{
-			IAtomContainer commonbonds =  DefaultChemObjectBuilder.getInstance().newMolecule();
-			IAtomContainer exclusivebonds = DefaultChemObjectBuilder.getInstance().newMolecule();
-			IAtomContainer oldcycle = DefaultChemObjectBuilder.getInstance().newMolecule();
+			if(newcycle.getAtomCount()<cycle.getAtomCount())
+			{
+				// now find bonds in common
+				IAtomContainer commonbonds =  DefaultChemObjectBuilder.getInstance().newMolecule();
+				IAtomContainer exclusivebonds = DefaultChemObjectBuilder.getInstance().newMolecule();
+				IAtomContainer oldcycle = DefaultChemObjectBuilder.getInstance().newMolecule();
 				
-			int common;
-			for(IBond newbond : newcycle.bonds())
-			{
-				common=0;
-				for(IBond bond : cycle.bonds())
+				int common;
+				for(IBond newbond : newcycle.bonds())
 				{
-					if(bond==newbond)
+					common=0;
+					for(IBond bond : cycle.bonds())
 					{
-						commonbonds.addBond(bond);
-						common=1;
-						break;
+						if(bond==newbond)
+						{
+							commonbonds.addBond(bond);
+							common=1;
+						}
+					}			
+					// if the newbond not in other cycle then add to exclusivebonds
+					if(common==0)
+					{
+						exclusivebonds.addBond(newbond);
 					}
-				}			
-				// if the newbond not in other cycle then add to exclusivebonds
-				if(common==0)
-				{
-					exclusivebonds.addBond(newbond);
 				}
-			}
-
-			// now check if the number of bonds is greater than number exclusive bonds
-			if(newcycle.getAtomCount()<=cycle.getAtomCount())
-			{
-				// two versions - if smaller than ring being checked - and if bigger
+			
 				if(commonbonds.getBondCount()>exclusivebonds.getBondCount())
 				{
-					// then update the old cycle by removing commonbonds
-					// does this work? - ie does altering cycle alter cycles?
-					oldcycle.add(cycle);					
-					for(IBond deletebond : commonbonds.bonds())
-					{
-						oldcycle.removeAtom(deletebond.getAtom(0));
-						oldcycle.removeAtom(deletebond.getAtom(1));
-						
-						oldcycle.removeBond(deletebond);
-						
-					}
-					for(IBond addbond : exclusivebonds.bonds())
-					{
-						oldcycle.addAtom(addbond.getAtom(0));
-						oldcycle.addAtom(addbond.getAtom(1));
-						
-						oldcycle.addBond(addbond);						
-					}
-					if(checkUniqueCycle(oldcycle,cycles,cyclearray)==0)
-					{			
-						deleted++;
-					}
-					else
-					{
-						removeCycleArray(cycle,index,cyclearray);
-						addCycleArray(oldcycle,index,cyclearray);
-						replaceCycle(cycle,oldcycle);
-					}
-				}
-			}
-			
-			else
-			{
-				if(commonbonds.getBondCount()>(cycle.getBondCount()-commonbonds.getBondCount()))
-				{
-					oldcycle.add(newcycle);
+					oldcycle.add(cycle);
 					
 					for(IBond deletebond : commonbonds.bonds())
 					{
@@ -405,55 +365,32 @@ public class barkerSSSR {
 						
 					}
 
-					// now need to find the bonds exclusive to the smaller cycle
-					IAtomContainer newexclusivebonds = DefaultChemObjectBuilder.getInstance().newMolecule();
-	
-					int newcommon;
-					for(IBond newbond : cycle.bonds())
-					{
-						newcommon=0;
-						for(IBond bond : newcycle.bonds())
-						{
-							if(bond==newbond)
-							{
-								newcommon=1;
-								break;
-							}
-						}			
-						// if the newbond not in other cycle then add to exclusivebonds
-						if(newcommon==0)
-						{
-							newexclusivebonds.addBond(newbond);
-						}
-					}
-								
-					for(IBond addbond : newexclusivebonds.bonds())
+					for(IBond addbond : exclusivebonds.bonds())
 					{
 						oldcycle.addAtom(addbond.getAtom(0));
 						oldcycle.addAtom(addbond.getAtom(1));
 						
 						oldcycle.addBond(addbond);						
 					}
-
+				
 					if(checkUniqueCycle(oldcycle,cycles,cyclearray)==0)
-					{		
+					{
+									
 						deleted++;
-						endflag=1;
 					}
 					else
 					{
-						removeCycleArray(newcycle,cycles.getAtomContainerCount(),cyclearray);
-						addCycleArray(oldcycle,cycles.getAtomContainerCount(),cyclearray);
-						replaceCycle(newcycle,oldcycle);
-					}	
-				}
-			}		
-			index++;
-			if(endflag==1)
-			{
-				return 99;
+						removeCycleArray(cycle,index,cyclearray);
+						addCycleArray(oldcycle,index,cyclearray);
+						replaceCycle(cycle,oldcycle);
+					}
+					
+				}	
+				
 			}
-		}
+			
+			index++;
+		}		
 		return deleted;
 	}
 

@@ -39,3 +39,35 @@ Found about six molecules in NCI which cannot avoid finding too many rings. This
 
   
 Found some bugs in the way rings are split which needed fixing. This seems to work fine now.
+
+10/06/2011
+
+Done some time trials with interesting results.
+
+First I wanted to see if the first step of the algorithm could be used with allrings finding. The idea is that for those molecules where there are isolated single rings these could be solved quickly prior to allrings. But this was not possible to test as for the NCI dataset there are numerous complex structures which cause recursion. So any seconds saved are going to be irrelevant. 
+
+It would be interesting to test this idea with an ESSR algorithm but I don't think CDK has one against which I can test.
+
+Then I tested step one of stage one on its own - that is at the end of the fragmentation if rings are found then avoid sssr. 150271 mols are solved in this way (60%) and it turns out that the timetaken is actually the same as by including the second step in stage one. What this means is that it may not be worth doing the extra steps. It also means that it may be possible to revert to an algorithm that is buggy but faster. The question is whether the bugs could cause incorrect ring finding - but previous test where the bug existed did not cause this. All I fixed was where the rings found are greater than cauchy so these will just go to the sssr.
+
+Another thing I looked at which could prove interesting is to use the O(n) time partitioning into rings in the cdk. The idea is that by doing this splitting the linear chains are removed and ring finding becomes more efficient. The extra step involved, although costly in time, could speed it up by finding more molecules. In this way 241448 mols are solved so it does work and the time taken is marginally faster but not significantly so. Possibly this could be used in some way more efficiently.
+
+So I made changes to revert back to an older checksplitting. Checksplitting checks if a smaller ring is contained within a larger one and if so removes the smaller ring from the larger thus creating a new ring. But this does not look at where a larger ring is created and needs to be split by smaller rings found previously. The corrected version added this feature, but it significantly slowed down the algorithm. But then if you left it out it does not mean that wrong rings will be found. it is just that sometimes more rings than the cauchy will be found and these will go through to the sssr, but as this is rare it need not be a problem. Also the old version can still split the larger ring because later additions of linear fragments (which there must be) will split the ring. 
+
+Time trial shows this is the fastest - it solves fewer molecules - 238191 but takes 108s which is 2317 mol/s. 3 times faster than sssr alone. Actually it is 2579 mol/s for the algorithm alone ie on the mols it solves.
+
+Question is - is it correct? Does it find the correct rings. Need to check this next.
+
+Also tried spanning tree idea with this faster method and it is a fair bit slower. So there is no advantage to adding this - unless only do this when fails - but why just to save 2 secs - not worth the effort.
+
+
+Testing the allgorithm:
+
+Here is how I tested the algorithm. Where the algorithm finds the sssr - see that the sssrFinder finds the same rings. Where the sssr does not find the same rings then this does not mean that the algorithm has failed. The reason may be that the algorithm found a ring which is a valid ring and there is an arbitrary choice between which rings to find. This is always where two linker atoms in a ring are equidistant - so there are two shortest paths. Mismatching therefore is where the algorithm chooses the alternative path. 
+
+There were around 1000 molecules which mismatched. I can't check everyone by eye so to test where there is a mismatch an allrings search is performed on these molecules and if the disputed ring is in the set of all rings I assume that there is no problem. I believe this is correct.
+
+I ran this and found there to be no mismatches. So all rings found are the correct sssr. I'm confident of this.
+ 
+The code therefore I think is finished and ready for whatever testing, tidying up needs doing for it to be included in cdk.
+
