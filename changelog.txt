@@ -71,3 +71,16 @@ I ran this and found there to be no mismatches. So all rings found are the corre
  
 The code therefore I think is finished and ready for whatever testing, tidying up needs doing for it to be included in cdk.
 
+13/06/2011
+
+Well, now I've just realised that it is in fact possible to find the unfound rings very easily without resorting to the sssr finder at all. It is simply a question of removing the bonds of a linear fragment from the original molecule, finding the shortest path between the linkers in whatever is left of the molecule and checking if a unique ring is found, and check splitting of course.
+
+Optimised - by only looking at those linear fragments not already associated with a found ring. And also sometimes there is an alternative shortest path which should give a correct unique ring but the path found is another one - already in a ring. to solve this, if this happens - delete the first shoprtest path from the molecule and see if there is another of the same size - if so try this with a new cycle. Mind you - what if there are more than one of these alternative paths?
+
+After some debugging and optimising I now have an algorithm that solves 250132 mols out of 250251 - so only 93 unsolved. I need to look into why these aren't solved - I think due to the alternative shortest path phenomenon. This is going to be a pig to solve though.
+
+Time trial for this - 55s ie 4550 mol/s!!!!!!!!!
+
+Unbelievable. Must have done something wrong. 
+
+
