@@ -83,4 +83,33 @@ Time trial for this - 55s ie 4550 mol/s!!!!!!!!!
 
 Unbelievable. Must have done something wrong. 
 
+16/06/2011
 
+So now the thing works on this weird structure. What it does is where there are still rings left to find after stage two the linear fragment which is not solved is removed from the molecule. Then it gets all paths between the linker atoms. Now there are a lot of these, and they are not linear paths - they can include cyclic walks. So each path is added to the original linear fragment. The cycle generated is checked that it is unique, and also for splitting. If the cycle passes this test then it is tested to be only one ring - as sometimes multiple rings result. If it passes this test it is added to the list of cycles already found. Then when a number of these cycles have been found they are sorted into order and the first number corresponding to the number of rings sought are returned. 
+
+However, although this works for the weird molecule it is not going to work for others as it is simply wrong. 
+
+The problem is that there could be a situation where an alternative ring to the shortest path could result and this would be chosen but would be wrong. There is no easy solution to this.
+
+My feeling is that if this happens it simply fails and you have to go through to the sssrfinder.
+
+I can't see any easy way to resolve this. You would need to solve the problem of ignoring alternative path cycles.
+
+I think the next stage is to test the algorithm works by finding the right rings, in particular i hadn't looked at the possibility that the ring sizes might not tally even though the allrings does. ie the sssr might find 4,5,5,6 with my algorithm finding 4,5,5,10 where 10 is in the allrings - so this would pass when it shouldn't.
+
+26/06/2011
+
+So the thing is finished now with the algorithm optimised and all known bugs fixed. Tested on a very large dataset.
+
+Found a bug where the removal of furter shortest paths leads to disconnected linkers and so the cdk getshortestpath crashes on this. Fixed this by checking for disconnected components first. However, then I realised this is whole function (finalresolveunfoundcycles) is really potentially buggy so i have removed it and now all are resolved in the resolverarecycles function.
+
+Introduced cyclebondarray to optimise the checksplitting functions - these were O(N^3) but now I think are O(N).
+
+Test worked fine - I think. When the sssr is different ot what is found it carries out an allrings search and checks if the mismatched ring is in this. The assumption is that it is the same size, but I never test this. But now I have fixed this so if it mismatches the cdk's sssr then the all rings which match the cdk-sssr are removed from consideration. This is correct. NCI passes this test which is very encouraging.
+
+Final time trails:
+
+1. barkerSSSRFinder - 117s
+2. stages one and two plus CDK SSSR to finish off - 125s
+
+really they are about the same. I think though that it is better to use the first two stages to preprocess the cdk sssr as I cannot be certain it works on very complex (and as yet unseen) molecules, but the cdk's sssr I guess is known to work on these. 

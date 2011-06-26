@@ -2,26 +2,52 @@ Notes for development of reduced edge graph sssr
 
 Here are some initial notes and thoughts. 
 
-In general the approach is in two stages and due to the nature of most typical drug-like molecules (the kind I'm interested in) most (96%) can be solved in stage one. This is because it favours molecules with either single rings separated by acyclic chains and/or simple ring systems - arranged linearly.
+In general the approach has a number of stages and due to the nature of most typical drug-like molecules (the kind I'm interested in) most (96%) can be solved at the end of stage two. This is because it favours molecules with either single rings separated by acyclic chains and/or simple ring systems - arranged linearly.
 
 I call the approach the reduced edge graph because it is a reduced graph and also an edge graph. That is nodes in the graph represent multiple nodes in the original chemical graph, and an edge graph because the edges in the graph are actually nodes in the original graph. 
 
-There are two stages.
+There are four stages.
 
 Stage one
 
 1. All terminal branches are pruned away leaving just the rings and their acyclic connectors.
-2. An edge is selected to be cut. The selection of this edge is based on finding the least connected atom using a connectivity index described by zamora. This step improves the chances of solving the molecule in stage one, and gives an improvement in efficiency.
+2. An edge is selected to be cut. The selection of this edge is based on finding the least connected atom using a connectivity index adapted from that described by zamora. This step improves the chances of solving the molecule in stage one, and gives an improvement in efficiency.
 3. When the edge is cut all terminal branches are deleted and the entire substructure that has been removed is reconnected as it was in the original graph and represented as a single node which is added to the reduced edge graph.
-4. Steps 2 and 3 continue until nothing remains of the molecule.
-5. The nodes in the reduced edge graph are connected by finding those atoms shared between neighbouring nodes.
-6. Nodes which contain cycles are identified and the cycles retrieved.
-7. If there are still rings left to be found then all fragments which are linear are analysed. If the terminal atoms of these linear fragments are found in a single neighbouring fragment then a ring is created. This is made up of the linear fragment plus the shortest path between the atoms in the neighbouring fragment. If a linear fragment gives rise to a ring then it is labelled as solved. This stops it from being considered later. It is a feature of this that all cycles not found at step 6 must have a linear fragment associated with it. However not all linear fragments give rise to cycles.
-8. Because it is possible for a fragment containing a ring to be divided by step 7 to create two new smaller rings this ring splitting is tested. To do this when a cycle is found it is compared with all cycles previously found which are larger than it. If it shares any bonds then we find all bonds in common and all bonds exclusive to the new cycle. If the number of bonds exclusive to the new cycle is less than the number in common then splitting occurs. The larger cycle is split by removing the new ring and adding what's left to the linear fragment. It is also necessary to test the rings found against those previously found to check they are unique. If not then they are discarded.
-9. If all rings have not been found then steps 7 and 8 are repeated until all linear fragments have been tested.
+4. Nodes which contain cycles are identified and the cycles retrieved.
+5. Steps 2 to 4 continue until nothing remains of the molecule.
+6. If all rings have been found then it ends.
 
+Stage two
 
-This shows a typical fragmentation for stage 1:
+1. Find a linear fragment, Fragment 1, which has its terminal atoms both contained within another fragment, Fragment 2.
+2. The shortest path between these two linking atoms is found in Fragment 2 is found.
+3. The shortest path in Fragment 2 is combined with Fragment 1 to give a cycle. Fragment 1 is labelled as solved. This stops it from being considered later. It is a feature of this that all cycles not found at stage one must have a linear fragment associated with it. However not all linear fragments give rise to cycles.
+4. It is possible that the ring just found can be a part of a previously found cycle. To check this the newly created cycle is compared with all cycles previously found. If it shares any bonds then we find all bonds in common and all bonds exclusive to the new cycle. If the number of bonds exclusive to the new cycle is less than the number in common then splitting occurs. The larger cycle is split by removing the new ring and adding what's left to the linear fragment. 
+5. It is also necessary to test the rings found against those previously found to check they are unique. If not then they are discarded.
+6. If all rings have not been found then steps 1 to 5 are repeated until all linear fragments have been tested.
+7. If all rings have been found then it ends.
+
+Stage three
+
+1. Rings remaining to be found are more copmplex and made up of rings of three or more nodes in the reduced edge graph. The easiest way to solve these is to find each linear fragment and remove all the bonds found in this fragment from the original molecule.
+2. Then the shortest path between the two linking atoms is found.
+3. The shortest path is added to the fragment removed to make up a new ring.
+4. The ring is checked for splitting.
+5. The ring is checked for uniqueness.
+6. If all rings have not been found then steps 1 to 5 are repeated until all linear fragments have been tested.
+7. If all rings have been found then it ends.
+
+Stage four
+
+1. The reduced edge graph is constructed by connecting all nodes with edges where atoms are shared between the fragment represented by a node.
+2. The CDK SSSRFinder finds all rings in the reduced edge graph.
+3. Each ring is reconstructed by taking each node in the found cycle and finding the shortest path through the representative fragment which links the linker atoms en route. These shortest paths are added together to give a ring.
+4. The ring is checked for splitting.
+5. The ring is checked for uniqueness.
+6. If all rings have not been found then steps 3 to 5 are repeated until all linear fragments have been tested.
+7. All rings are found by the end of this stage.
+
+This shows a typical fragmentation for a molecule solved in stages 1 and 2:
  
 o-o-o-o     o-o-o
     | |     | | |
@@ -63,53 +89,27 @@ o-o-o-o     o-o-o
 
 Fragments A and C are easily resolved into cycles. Fragment B is resolved by finding shortest path between connectors in Fragment C. 
 
+In theory all rings should be found by now, - that is in the NCI dataset at least. I am assuming that there is nothing out there which fails this - which is a big assumption. Interestingly only 46 molecules reaches stage 4. 
 
-Stage two
+Here are the figures for the numbers of molecules solved at which stage:
+For 250251 molecules in the NCI dataset.
 
-1. Any reduced edge graph arriving here must be cyclic. So to solve these we need to find the shortest path between the terminal atoms of an unsolved linear fragment. This is done by deleting the linear fragment from the molecule, then finding the shortest path between the terminal atoms in what is left.
-2. Any ring found in this way is checked for splitting. However, in this stage the cycle being tested can be tested against rings smaller than it - which is not the case in stage one. Found rings are also tested for uniqueness.
-3. Steps 1 and 2 are repeated for all unsolved linear fragments.
-4. If the rings are still not found then steps 1 and 2 are repeated, but this time if the shortest path does not give rise to a ring then any alternative shortest paths of the same size as the first are sought. This is done by deleting each shortest path after testing.
-5. If the rings are still not found then we have to repeat step 4, but with all possible paths between the terminal atoms, in increasing order of size until a new unique ring is found. [not currently implemented]
-
-In theory all rings should be found by now, - that is in the NCI dataset at least. I am assuming that there is nothing out there which fails this - which is a big assumption. Interestingly only one molecule reaches step 5 of stage 2. Everything else is solved.
-
-It is worth pointing out a strange phenomenon with sssr finding which caused some problems. It is also shown up when I tested the rings found by the above method and with the sssrfinder of cdk. It is possible that in some cases where a cycle can revolve around a symmetrical axis that two possible rings exist but only one can be chosen and this choice is arbitrary. Thus my method finds one way and the cdk sssr finds the other but although it finds different rings both are valid. For example consider a benzene ring with a neigbouring ring made by joining an atom [7] to atoms [1] and [4] of the benzene. The extra ring has two possibilities: 
-[1][7][4][2][3] or [1][7][4][5][6]. Both are valid. So in stage two the sssr finder fails to find a cycle in the reduced edge graph because they are looking at the rings differently, so cannot resolve all rings. I hope that make sense - it's my theory anyway, I may be wrong.
+Stage 0 - 21964   = 21964	= 8.8% 	[these are acyclic structures]
+Stage 1 - 128598  = 150562	= 60.2%
+Stage 2 - 110178  = 238776 	= 95.4%
+Stage 3 - 11429	  = 250205	= 99.9%
+Stage 4 - 45	  = 250251	= 100%
 
 I did a time trial using the NCI dataset of 250251 molecules in smiles format. Times shown are times taken less the time taken to do the background processing of reading in the smiles (1002s).
 
 CDK SSSRFinder alone 				- 1379s - 1002s = 377s = 663 molecules processed per second.
-New algorithm					- 1202s - 1002s = 200s = 1251 mols/s
+New algorithm					- 1119s - 1002s = 117s = 2275 mols/s
+New algorithm - stages 1 and 2 + CDK SSSRFinder - 1127s - 1002s = 125s = 2002 mols/s
 
-So clearly the new method is twice as fast when combined with sssrfinder. 
-
-The part that slows things down is where checking for splitting occurs. It might be possible to optimise this step.
+So clearly the new method is faster than the original sssr method. The first two stages are very fast - linear time I think. The last few stages are probably about as fast as doing the cdk sssr to find the rings for those not found in the first two stages. So it is difficult to suggest which is better - it could be safer to use stages one and two as a preprocessing step prior to the sssr because I am confident any molecule solved here is correct. However, I'm not confident that there are not molecules which will fail for the latter stages, although I haven't found one in millions of molecules tested. To be on the safe side I suggest using it as a pre-processing step to speed up the cdk's sssr.
 
 Also the extra time taken to find the least connected atom is worth it as more molecules are solved at stage 1. With this step 239865 molecules are solved at stage 1 (amazingly this is 95.8%! of the dataset, with only 10486 unsolved) whereas without this step only 219757 molecules are solved in stage 1 (30594 unsolved).
 
-So things I need to do:
 
-Algorithm Fixes
-
-
-- look at ways to optimise checksplittingcomplex somehow. 
-
-- how to find all the paths between two atoms
-
-- There is a real problem caused by deleting atoms when stripmolecule/stripterminalatoms deletes atoms from mol. This shifts atoms up the atomcontainer and so i have to pass a copy of the original molecule around as a reference to find original positions. There must be a better way of doing this. Maybe don't delete atoms - just bonds from the molecule.
-
-- is it a unique way of finding the sssr? Has anyone ever done this before? I have no access to papers so can't find out. Last time I looked (6 months ago) I couldn't find anything. Be good if someone could confirm this.
-
-
-CDK problems
-
-- I have to give each atom an id so that I keep track of them when the atoms are deleted. Otherwise causes problems as everything is shifted out of position. Is there a better way to do this? Maybe not deleting atoms from the molecule would keep everything inplace - just delete the bonds.
-
-- CDK does not recognise elements with mass > 100 - I must need to set something up. Anyone able to tell me what it is I'm not doing. I had to set up an NCI dataset by hand by replacing these atoms. Fortunately not many of them.
-
-- data structure to add info to the atoms, for example the connectivity index for each atom. Does cdk have the option to add a user defined field to the atom such as atom.connectivity? Otherwise I will have to add a separate array which seems clumsy.
-
-- Is there a better way to find atoms on the periphery of a molecule? Connectivity index does not always do this. If could guarantee finding a peripheral atom then can increase efficiency - but it must be a fast calculation. I had used a similar algorithm to the one implemented which is used in canonical enumeration of atoms - I forget its name (marshall?). This needed a few iterations to find least connected atoms so wasn't used as deemed too inefficient - but perhaps i could test this. 
 
 
