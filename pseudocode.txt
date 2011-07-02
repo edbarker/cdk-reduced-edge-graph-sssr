@@ -1,0 +1,89 @@
+PseudoCode
+
+Preliminaries 
+
+1. Find the number of bonds and atoms in the molecule.
+2. Find the number of disconnected components in the molecule (using Minimal Spanning Tree).
+3. Find the ring nullity for the molecule (number bonds - number atoms + number components).
+4. If nullity = 0 then there are no rings so END with a TRUE, else proceed.
+5. For each atom give an identification number to allow identification in later stages.
+6. For each bond give an identification number to allow identification in later stages.
+7. Remove all terminal one-connected atoms iteratively until no more remain.
+
+Stage 1.
+
+1. Find the connectivity index for each atom by going to FIND CONNECTIVITY INDEX (see below).  
+2. Find the atom with the lowest connectivity index for all atoms in the remaining molecule.
+3. Select any bond from this least connected atom and remove it.
+4. Add this bond to a new fragment subgraph.
+5. Remove all terminal one-connected atoms iteratively from the molecule until no more remain.
+6. Add each atom and bond removed to the fragment subgraph.
+7. If a bond removed is connected to an atom still remaining in the original molecule add this connector atom to the fragment. Update the connectivity index for these connector atoms.
+8. Add a new node to the reduced edge graph which corresponds to this fragment.
+9. Perform a ring nullity calculation on the fragment.  If the fragment is cyclic add the ring to the list of rings found.
+10. If the fragment contains a ring find if there is a terminal one-connected atom. 
+11. If the fragment is cyclic and contains a one-connected atom mark this node as a Type III fragment.
+12. If the fragment is cyclic and does not contain a one-connected atom mark this node as a Type II fragment.
+13. If the fragment is acyclic mark this node as a Type I fragment. 
+14. Repeat steps 1 to 13 until no more atoms remain in the molecule.
+15. If the ring nullity of the original molecule is reached then END with a TRUE.
+
+Stage 2.
+
+1. For each Type I fragment (Fragment A) there are two terminal atoms. Find which fragment each of these atoms is in.
+2. If both terminal atoms in Fragment A also exist in a single fragment (Fragment B) then proceed, otherwise goto step 1. 
+3. Find the shortest path between the two terminal atoms in Fragment B.
+4. Add this shortest path to Fragment A.
+5. Test the ring for uniqueness by comparing with all rings found far. If unique add to list of rings found and proceed, else goto 1.
+6. Test the ring produced for ring splitting by going to TEST RING SPLITTING (see below).
+7. Repeat steps 1 to 6 until no more Type I fragments remain.
+8. If the ring nullity of the original molecule is reached then END with a TRUE.
+
+Stage 3.
+
+1. For each Type I fragment (Fragment A) in the list of fragments.
+2. Find the terminal atoms in Fragment A.
+3. Remove all bonds in Fragment A from the original molecule.
+4. Test the number of disconnected components has not increased in step 3, if so then goto step 1, else proceed.
+4. Find the shortest path in the remaining molecule between the terminal atoms.
+5. Add the shortest path to Fragment A.
+6. Test the ring for uniqueness by comparing with all rings found far. If unique add to list of rings found and proceed, else goto step 1.
+7. Test the ring produced for ring splitting by going to TEST RING SPLITTING (see below).
+8. Repeat steps 1 to 7 until no more Type I fragments remain.
+9. If the ring nullity of the original molecule is reached then END with a TRUE.
+
+Stage 4.
+
+1. For each fragment find all other fragments which contain any of its atoms.
+2. Where fragments share atoms make an edge between the respective nodes in the reduced edge graph.
+3. Find the smallest set of smallest rings in the reduced edge graph using any established algorithm.
+4. For each ring in the reduced edge graph find the nodes making up this ring.
+5. If the ring contains an unfound linear node then process this ring, otherwise get next ring.
+6. Add the fragment corresponding to each node in the reduced edge graph ring to make a subgraph.
+7. Send the subgraph to find the rings using the above method recursively from the Preliminaries stage above.
+8. Test the rings found for uniqueness by comparing with all rings found far. If unique add to list of rings found and proceed, else goto step 4.
+9. Test the ring produced for ring splitting by going to TEST RING SPLITTING (see below). 
+10. Repeat steps 4 to 9 until no more unfound Type I fragments remain.
+11. If the ring nullity of the original molecule is reached then END with a TRUE.
+12. If rings remain to be found repeat steps 4 to 11 but ignore step 5.
+13. If the ring nullity of the original molecule is not reached then END with a FALSE.
+
+FIND CONNECTIVITY INDEX
+
+1. Find the number of neighbours for each atom. 
+2. Find the connectivity index where if the number of neighbours is 1,2,3 or >3 the index is 0,2,8,64 respectively.
+3. Find the total index for each atom by adding the connectivity index for an atom to that of each of its neighbours.
+
+TEST RING SPLITTING
+
+1. Take a ring, Ring A, from the list of rings found.
+2. Find the number of bonds in common with the newly found ring, Ring B.
+3. If the number of bonds in common is more than the number of bonds exclusive to Ring B then proceed, else goto step 1. 
+4. Remove the common bonds from Ring A and add the bonds exclusive to Ring B.
+5. Test the newly produced ring does not already exist in the list of found rings.
+6. If the new ring is unique then update Ring A in the list.
+7. If the new ring is not unique remove Ring A from the list.
+8. Repeat steps 1 to 7 until no more rings remain to be tested in the list of rings found.
+
+
+

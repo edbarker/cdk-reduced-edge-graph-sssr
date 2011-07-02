@@ -41,9 +41,10 @@ Stage four
 
 1. The reduced edge graph is constructed by connecting all nodes with edges where atoms are shared between the fragment represented by a node.
 2. The CDK SSSRFinder finds all rings in the reduced edge graph.
-3. Each ring is reconstructed by taking each node in the found cycle and finding the shortest path through the representative fragment which links the linker atoms en route. These shortest paths are added together to give a ring.
-4. The ring is checked for splitting.
-5. The ring is checked for uniqueness.
+3. Each ring is reconstructed by adding the fragments which correspond to the nodes making up the fragment ring.
+4. The cycles in this reconstructed fragment are found using barkerSSSR in a recursive step.
+4. For each ring found check for splitting.
+5. For each ring found check for uniqueness.
 6. If all rings have not been found then steps 3 to 5 are repeated until all linear fragments have been tested.
 7. All rings are found by the end of this stage.
 
@@ -89,7 +90,7 @@ o-o-o-o     o-o-o
 
 Fragments A and C are easily resolved into cycles. Fragment B is resolved by finding shortest path between connectors in Fragment C. 
 
-In theory all rings should be found by now, - that is in the NCI dataset at least. I am assuming that there is nothing out there which fails this - which is a big assumption. Interestingly only 46 molecules reaches stage 4. 
+In theory all rings should be found by now, - that is in the NCI dataset at least. I am assuming that there is nothing out there which fails this - which is a big assumption. Interestingly only 46 molecules reach stage 4. 
 
 Here are the figures for the numbers of molecules solved at which stage:
 For 250251 molecules in the NCI dataset.
@@ -98,15 +99,18 @@ Stage 0 - 21964   = 21964	= 8.8% 	[these are acyclic structures]
 Stage 1 - 128598  = 150562	= 60.2%
 Stage 2 - 110178  = 238776 	= 95.4%
 Stage 3 - 11429	  = 250205	= 99.9%
-Stage 4 - 45	  = 250251	= 100%
+Stage 4 - 46	  = 250251	= 100%
 
 I did a time trial using the NCI dataset of 250251 molecules in smiles format. Times shown are times taken less the time taken to do the background processing of reading in the smiles (1002s).
 
-CDK SSSRFinder alone 				- 1379s - 1002s = 377s = 663 molecules processed per second.
-New algorithm					- 1119s - 1002s = 117s = 2275 mols/s
-New algorithm - stages 1 and 2 + CDK SSSRFinder - 1127s - 1002s = 125s = 2002 mols/s
+CDK SSSRFinder alone 				- 1379s - 1002s 	= 377s = 663 molecules processed per second.
+New algorithm - stages 1,2,3,4			- 		 	= 91s =  2750 mols/s
+New algorithm - stages 1,2,3 + CDK SSSRFinder	- 		 	= 85s =   mols/s
+New algorithm - stages 1 and 2 + CDK SSSRFinder - 			= 112s = 2234 mols/s
 
-So clearly the new method is faster than the original sssr method. The first two stages are very fast - linear time I think. The last few stages are probably about as fast as doing the cdk sssr to find the rings for those not found in the first two stages. So it is difficult to suggest which is better - it could be safer to use stages one and two as a preprocessing step prior to the sssr because I am confident any molecule solved here is correct. However, I'm not confident that there are not molecules which will fail for the latter stages, although I haven't found one in millions of molecules tested. To be on the safe side I suggest using it as a pre-processing step to speed up the cdk's sssr.
+So clearly the new method is faster than the original sssr method. The first three stages are very fast - linear time I think. The last stage is possibly slightly slower than the cdk sssr. There is also the very slight possibility that it is wrong although it is correct for those molecules tested. 
+
+It could be safer to use stages one and two and three as a preprocessing step prior to the sssr because I am confident any molecule solved here is correct. Also this is the fastest method. However, I'm not confident that there are not molecules which will fail for stage 4, although I haven't found one in millions of molecules tested. To be on the safe side I suggest using it as a pre-processing step to speed up the cdk's sssr.
 
 Also the extra time taken to find the least connected atom is worth it as more molecules are solved at stage 1. With this step 239865 molecules are solved at stage 1 (amazingly this is 95.8%! of the dataset, with only 10486 unsolved) whereas without this step only 219757 molecules are solved in stage 1 (30594 unsolved).
 

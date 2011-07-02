@@ -113,3 +113,19 @@ Final time trails:
 2. stages one and two plus CDK SSSR to finish off - 125s
 
 really they are about the same. I think though that it is better to use the first two stages to preprocess the cdk sssr as I cannot be certain it works on very complex (and as yet unseen) molecules, but the cdk's sssr I guess is known to work on these. 
+
+01/07/2011
+
+Found a bug in stage 4. Realised that if there were two linking atoms to the next fragment then it could choose the wrong, longer path and it is doubtful this would be solved at the checksplitting stage. This never causes a problem, but it could do so was removed. 
+
+I changed this so that the sssr finds cycles in the fragment graph and then for each cycle it builds a subgraph made up of all the fragments and finds the sssr for this subgraph by sending it to be solved to the barkerSSSR itself. The danger is that it will cause infinite recursion but this is unlikely as first very few compounds reach this stage and second only very simple subgraphs are sent to be solved. 
+
+To speed it up the algorithm first looks for any cycle containing an unsolved node, then if no new cycles found it tries all cycles.
+
+This seems to work fine.
+
+Also did a time trial with stages 1, 2 and 3 and cdk's sssr and it was 85s so this is very quick.
+
+Next is to do the time trial for the new changes. This was 91s. Which is better than stage 1,2 and cdk sssr (112s).
+ 
+

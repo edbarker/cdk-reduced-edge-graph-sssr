@@ -1010,137 +1010,187 @@ public class barkerSSSRFinder {
 			IAtomContainer copymol, IAtomContainer originalmol,
 			int numringsfound, int[][] cyclearray, int[][] bondcyclearray,
 			int[][] atomfragmatrix, int originalnumatoms) {
-		// to finish then we need to find sssr in fraggraph using cdk's sssrfinder itself
-		// build and test the cycle formed
-		// to build this we need to find shortest paths to linkers for each added fragment
 
+		// to finish then we need to find sssr in fraggraph 
+		// build and test the cycle formed
+		// to build this we add all the fragments to make a subgraph
+		// then use barkerSSSR itself to solve these and check cycles are unique and don't split
+		// This should not cause deep recursion because the subgraphs sent should be very simple to
+		// resolve. But I suppose there is a danger of this.
+	
 		// we haven't built the fragraph connections yet so do this
 		buildfraggraph(fraggraph,terminalatoms,atomfragmatrix,fragments,originalnumatoms);
-			
-		IRingSet fragRings = new SSSRFinder(fraggraph).findSSSR();     		
-		List<IAtomContainer> ringlist = RingSetManipulator.getAllAtomContainers(fragRings);
+		
+        IRingSet fragRings = new SSSRFinder(fraggraph).findSSSR();     		
+  		List<IAtomContainer> ringlist = RingSetManipulator.getAllAtomContainers(fragRings); 			
 
 		IAtomContainer sssrringatoms = DefaultChemObjectBuilder.getInstance().newMolecule();		
 		for (int j = 0; j < fragRings.getAtomContainerCount(); j++) 
 		{
-			sssrringatoms = ringlist.get(j);	  			
+			sssrringatoms = ringlist.get(j);
+  			
 			// build up the ring from the fragments
-					
-			int [] linkingatoms;
-			linkingatoms = new int [sssrringatoms.getAtomCount()];
-			  				
+						
 			int [] fraglist;
 			fraglist = new int [sssrringatoms.getAtomCount()];		  				
-			  				
-			// first find the linkers between nodes in cycle
 			int count=0;
+			int [] unfound = new int [sssrringatoms.getAtomCount()];
+			int unfoundcount=0;
+			
 			for(IAtom fragnode : sssrringatoms.atoms())
 			{
 				fraglist[count]=Integer.parseInt(fragnode.getID());
-				count++;		  							  						
-			}
-			count=0;
-			int y1,y2;
-			for(int k=0;k<sssrringatoms.getAtomCount();k++)
-			{		  							  			
-				y1=fraglist[k];
-						
-				if(k==(sssrringatoms.getAtomCount()-1))
-					y2=fraglist[0];
-			  										
-				else
-					y2=fraglist[k+1];
-			  					
-				linkingatoms[count]=findAtomsinCommon(atomfragmatrix,originalnumatoms,y1,y2,fragments.getAtomContainer(y1));
-			  	 		      		
-				count++;
-			}
-			  				
-			// now trace the shortest paths between these atoms in the fragments
-			// really should ignore k1,3 interchange but as this doesn't make a ring forget it
-			IAtomContainer cycle =  DefaultChemObjectBuilder.getInstance().newMolecule();	
-			for(int i=0;i<count;i++)
-			{
-				IAtomContainer fragment =  DefaultChemObjectBuilder.getInstance().newMolecule();	
-					
-				y1=linkingatoms[i];		
-					
-				if(i==(count-1))
+				if(fragnode.getAtomicNumber()==6)
 				{
-					y2=linkingatoms[0];
-					fragment=fragments.getAtomContainer(fraglist[0]);
+					unfound[unfoundcount]=Integer.parseInt(fragnode.getID());
+					unfoundcount++;
 				}
-			  										
-				else
-				{
-					y2=linkingatoms[i+1];				
-					fragment=fragments.getAtomContainer(fraglist[i+1]);
-				}		
+				count++;		
+			}
 
-				IAtom linker1 = originalmol.getAtom(y1);
-				IAtom linker2 = originalmol.getAtom(y2);				      	      
-				// now find shortest path in other fragment
-					
-				if(linker1!=linker2)					
-				{
-					List <IAtom> pathatoms=PathTools.getShortestPath(fragment,linker1,linker2);
-								
-					IAtomContainer shortestpath = DefaultChemObjectBuilder.getInstance().newMolecule();					
-					// now build shortest path from fragB
-					for(int h=0; h<pathatoms.size(); h++)
-					{
-						IAtom atom1=pathatoms.get(h);		
-						shortestpath.addAtom(atom1);
-					}
-					// now connect the atoms
-					for(IBond bond1 : fragment.bonds())
-					{
-						if(shortestpath.contains(bond1.getAtom(0))&&(shortestpath.contains(bond1.getAtom(1))))
-						{
-							shortestpath.addBond(bond1);									
-						}
-					}
-					shortestpath.add(shortestpath);
-					cycle.add(shortestpath);
-				
-				}
-			}
-			//trim cycle
-			stripTerminalAtoms(cycle);
-	    		
-			int splitflag;
-			
-			if(cycle.getAtomCount()>0)
+			if(unfoundcount>0)
 			{
-				splitflag=checkSplitting(cycle,cycles,cyclearray,bondcyclearray);
-	    	}
-	    		
-			else
-				splitflag=99;
-	    		
-	    	if(splitflag!=99)
-	    	{    		
-	    		if(splitflag==999)
-	    		{	
-	    			numringsfound++;
-	    		}
-	    		else
-	    		{
-	    			numringsfound-=splitflag;
-				
-	    			if(checkUniqueCycle(cycle,cycles,cyclearray)==1)
-	    			{
-	    				cycles.addAtomContainer(cycle);
-	    				addCycleArray(cycle,numringsfound,cyclearray,bondcyclearray);
-	    				numringsfound++;
-	    			}
-	    		}
-	    		if(numringsfound==cauchy)
-	    			return numringsfound;				
-	    	}
+				// to speed it up try the unsolved node first
+			
+				IAtomContainer submol =  DefaultChemObjectBuilder.getInstance().newMolecule();
+				for(int h=0;h<count;h++)
+				{
+					submol.add(fragments.getAtomContainer(fraglist[h]));
+				}
+			
+				int subcauchy = checkCycle(submol);
+			
+				if(subcauchy>0)
+				{
+					IMoleculeSet subcycles = DefaultChemObjectBuilder.getInstance().newMoleculeSet();	
+					stripTerminalAtoms(submol);
+			
+					// count is unused
+					count=findSSSR
+					(1,0,submol,subcauchy,originalnumatoms,subcycles,originalmol,
+        				originalmol.getBondCount());
+			
+					for(IAtomContainer subcycle : subcycles.molecules())
+					{		
+						int splitflag;
+            		
+						if(subcycle.getAtomCount()>0)
+						{
+							splitflag=checkSplittingComplex
+	    					(subcycle,cycles,cyclearray,numringsfound,bondcyclearray,originalmol.getBondCount());
+						}
+        		
+						else
+							splitflag=99;
+        		
+						if(splitflag!=99)
+						{    		
+							if(splitflag==999)
+							{	
+								numringsfound++;
+							}
+							else
+							{
+								numringsfound-=splitflag;
+    			
+								if(checkUniqueCycle(subcycle,cycles,cyclearray)==1)
+								{
+									cycles.addAtomContainer(subcycle);
+									addCycleArray(subcycle,numringsfound,cyclearray,bondcyclearray);
+									numringsfound++;
+								}
+							}
+							if(numringsfound==cauchy)
+								return numringsfound;
+    			
+						}
+					}	
+    			}
+    		}					
 		}
-			  					
+		
+		// if not found rings at this point then do it again but for all fragnode rings
+		for (int j = 0; j < fragRings.getAtomContainerCount(); j++) 
+		{
+			sssrringatoms = ringlist.get(j);
+	  			
+			// build up the ring from the fragments
+						
+			int [] fraglist;
+			fraglist = new int [sssrringatoms.getAtomCount()];		  				
+			int count=0;
+			int [] unfound = new int [sssrringatoms.getAtomCount()];
+			int unfoundcount=0;
+			
+			for(IAtom fragnode : sssrringatoms.atoms())
+			{
+				fraglist[count]=Integer.parseInt(fragnode.getID());
+				if(fragnode.getAtomicNumber()==6)
+				{
+					unfound[unfoundcount]=Integer.parseInt(fragnode.getID());
+					unfoundcount++;
+				}
+				count++;		
+			}
+			
+			IAtomContainer submol =  DefaultChemObjectBuilder.getInstance().newMolecule();
+			for(int h=0;h<count;h++)
+			{
+				submol.add(fragments.getAtomContainer(fraglist[h]));
+			}
+			
+			int subcauchy = checkCycle(submol);
+			
+			if(subcauchy>0)
+			{
+				IMoleculeSet subcycles = DefaultChemObjectBuilder.getInstance().newMoleculeSet();	
+				stripTerminalAtoms(submol);
+	
+				count=findSSSR
+				(1,0,submol,subcauchy,originalnumatoms,subcycles,originalmol,
+						originalmol.getBondCount());
+			
+				for(IAtomContainer subcycle : subcycles.molecules())
+				{		
+					int splitflag;
+            		
+					if(subcycle.getAtomCount()>0)
+					{
+						splitflag=checkSplittingComplex
+						(subcycle,cycles,cyclearray,numringsfound,bondcyclearray,originalmol.getBondCount());
+							
+					}
+        		
+					else
+						splitflag=99;
+        		
+					if(splitflag!=99)
+					{    		
+						if(splitflag==999)
+						{	
+							numringsfound++;
+						}
+						else
+						{
+							numringsfound-=splitflag;
+    			
+							if(checkUniqueCycle(subcycle,cycles,cyclearray)==1)
+							{
+								cycles.addAtomContainer(subcycle);
+								addCycleArray(subcycle,numringsfound,cyclearray,bondcyclearray);
+								numringsfound++;
+							}
+						}
+						if(numringsfound==cauchy)
+							return numringsfound;
+						
+					}
+				}	
+    		}       				
+		}
+		
 		return numringsfound;
+				
 	}
 		
 	private static void buildfraggraph(IAtomContainer fraggraph,
@@ -1176,20 +1226,6 @@ public class barkerSSSRFinder {
 		}			
 	}
 
-	private static int findAtomsinCommon(int[][] atomfragmatrix, 
-			int originalnumatoms, int i, int j, 
-			IAtomContainer frag1) {
-		// simply counts number of atoms shared in two fragments
-
-		for(IAtom atom : frag1.atoms())
-		{
-			if((atomfragmatrix[Integer.parseInt(atom.getID())][j]==1))
-				return(Integer.parseInt(atom.getID()));
-		}
-
-		return -1; //should not come here
-	}		
-		
 	private static int checkSplittingComplex(IAtomContainer newcycle,
 			IMoleculeSet cycles, int[][] cyclearray, int numringsfound,
 			int[][] bondcyclearray, int originalnumbonds) {
@@ -1323,4 +1359,5 @@ public class barkerSSSRFinder {
 	
 	
 	
+
 
